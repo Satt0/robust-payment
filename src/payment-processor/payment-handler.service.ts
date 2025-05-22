@@ -28,11 +28,9 @@ export class PaymentHandler {
         await this.getProductVariantInfoMap(messages.map(m => m.productVariants.map(v => v.id)).flat(1));
 
         // iterate over messages to check stock and save payments
-        console.log(this.variantInfo, 'before');
 
         await this.savePayments(messages.map(e => this.handleMessage(e)));
         // success and failed payment will be saved to db.
-        console.log(this.variantInfo, 'after');
     }
     private async getProductVariantInfoMap(variantId: number[]) {
         // we get the product variant info from db.
