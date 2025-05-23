@@ -25,10 +25,12 @@ export class PaymentHandler {
         return { success: true, item: message }
     }
     public async handleBatch(messages: PaymentMessage[]) {
+        console.log(messages);
+
         await this.getProductVariantInfoMap(messages.map(m => m.productVariants.map(v => v.id)).flat(1));
+        console.log(this.variantInfo);
 
         // iterate over messages to check stock and save payments
-
         await this.savePayments(messages.map(e => this.handleMessage(e)));
         // success and failed payment will be saved to db.
     }
@@ -40,6 +42,7 @@ export class PaymentHandler {
         })
     }
     public async savePayments(data: { success: boolean, item: PaymentMessage }[]) {
+        console.log(data);
         await TransactionExec(async (t) => {
             // update variant quantity
             const updateRes = await sequelize.query(
@@ -68,21 +71,22 @@ export class PaymentHandler {
                 }
             );
             // if some variant is not updated, which means the stock may be negative if we continue, throw error to rollback
-            if (updateRes[1] !== data
-                .filter(e => e.success)
-                .map(e => e.item.productVariants.map(v => v.id))
-                .flat()
-                .filter((value, index, self) => self.indexOf(value) === index)
-                .length) {
-                throw new Error('Stock update failed - affected rows mismatch');
-            }
+
+            // if (updateRes[1] !== data
+            //     .filter(e => e.success)
+            //     .map(e => e.item.productVariants.map(v => v.id))
+            //     .flat()
+            //     .filter((value, index, self) => self.indexOf(value) === index)
+            //     .length) {
+            //     throw new Error('Stock update failed - affected rows mismatch');
+            // }
             // insert payment records, both success and fail
-            await sequelize.query(
-                'INSERT INTO payments (id, amount, status, created_at, updated_at) VALUES :values',
-                {
-                    replacements: { values: data.map(e => ({ ...e.item, status: e.success ? 'pending' : 'failed' })) },
-                    transaction: t
-                })
+            // await sequelize.query(
+            //     'INSERT INTO payments (id, amount, status, created_at, updated_at) VALUES :values',
+            //     {
+            //         replacements: { values: data.map(e => ({ ...e.item, status: e.success ? 'pending' : 'failed' })) },
+            //         transaction: t
+            //     })
 
         })
     }

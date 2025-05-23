@@ -1,0 +1,42 @@
+@startuml payment processing diagram
+actor User
+participant "Payment API" as API
+participant "RabbitMQ" as Queue
+participant "Job Poller" as JobService
+participant "Payment Handler" as Handler
+database "Database" as DB
+
+group "User send payment request to API"
+    User -> API: Call payment API
+    activate API
+    API -> Queue: Push payment job
+    deactivate API
+end
+
+group "Batch job process payment queue"
+    Queue -> JobService: Process jobs in batch
+    activate JobService
+    JobService -> Handler: handleBatch(messages)
+    activate Handler
+    
+    Handler -> DB: Get product variant info
+    Handler -> Handler: Check stock availability
+    Handler -> DB: Update stock quantities
+    Handler -> DB: Save payment records
+    Handler --> JobService: Return results
+    deactivate Handler
+    
+    JobService --> Queue: Acknowledge processed jobs
+    deactivate JobService
+end
+
+group "User poll payment status"
+    User -> API: Poll payment status
+    activate API
+    API -> DB: Query payment status
+    DB --> API: Return payment status
+    API --> User: Return payment status
+    deactivate API
+end
+
+@enduml

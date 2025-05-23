@@ -28,9 +28,8 @@ export async function TransactionExec(callback: (t: Transaction) => any) {
         try {
             await callback(t)
         } catch (error) {
+            console.log('tx error', error)
             await t.rollback()
-        } finally {
-            await t.commit()
         }
     });
 }
