@@ -11,6 +11,9 @@ const consume = async () => {
     // Get messages in batch
     await kafkaConsumer.run({
         eachBatch: async (messages) => {
+            console.log('receving messages');
+
+            return;
             try {
                 const paymentHandler = new PaymentHandler()
                 await paymentHandler.handleBatch(messages.batch.messages.map(e => (JSON.parse(e.value!.toString()))))
