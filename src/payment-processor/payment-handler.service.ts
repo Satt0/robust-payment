@@ -1,4 +1,4 @@
-import { executeQuery } from "../shared/db.utils";
+import { executeQuery, sequelize, TransactionExec } from "../shared/db.utils";
 import { ProductVariant } from "../shared/interface";
 import { PaymentMessage } from "./payment-job.service";
 
@@ -40,5 +40,50 @@ export class PaymentHandler {
         })
     }
     public async savePayments(data: { success: boolean, item: PaymentMessage }[]) {
+        await TransactionExec(async (t) => {
+            // update variant quantity
+            const updateRes = await sequelize.query(
+                `UPDATE product_variants 
+                SET stock_quantity = CASE id 
+                    ${data.map(e =>
+                    e.success ?
+                        e.item.productVariants.map(v =>
+                            `WHEN ${v.id} THEN CASE 
+                                WHEN stock_quantity >= ${v.amount} THEN stock_quantity - ${v.amount}
+                                ELSE stock_quantity
+                            END`
+                        ).join(' ') : ''
+                ).filter(Boolean).join(' ')}
+                    ELSE stock_quantity 
+                END
+                WHERE id IN (:ids)`,
+                {
+                    replacements: {
+                        ids: data
+                            .filter(e => e.success)
+                            .map(e => e.item.productVariants.map(v => v.id))
+                            .flat()
+                    },
+                    transaction: t
+                }
+            );
+            // if some variant is not updated, which means the stock may be negative if we continue, throw error to rollback
+            if (updateRes[1] !== data
+                .filter(e => e.success)
+                .map(e => e.item.productVariants.map(v => v.id))
+                .flat()
+                .filter((value, index, self) => self.indexOf(value) === index)
+                .length) {
+                throw new Error('Stock update failed - affected rows mismatch');
+            }
+            // insert payment records, both success and fail
+            await sequelize.query(
+                'INSERT INTO payments (id, amount, status, created_at, updated_at) VALUES :values',
+                {
+                    replacements: { values: data.map(e => ({ ...e.item, status: e.success ? 'pending' : 'failed' })) },
+                    transaction: t
+                })
+
+        })
     }
 }

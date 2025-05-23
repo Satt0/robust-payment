@@ -1,7 +1,7 @@
-import { BindOrReplacements, QueryTypes, Sequelize } from 'sequelize';
+import { BindOrReplacements, QueryTypes, Sequelize, Transaction } from 'sequelize';
 
 // Create a Sequelize instance
-const sequelize = new Sequelize({
+export const sequelize = new Sequelize({
     dialect: 'postgres',
     username: process.env.DB_USER || 'payment_user',
     host: process.env.DB_HOST || 'localhost',
@@ -21,6 +21,18 @@ export async function executeQuery<T = any>(query: string, params?: BindOrReplac
         console.error('Error executing query:', error);
         throw error;
     }
+}
+
+export async function TransactionExec(callback: (t: Transaction) => any) {
+    return sequelize.transaction(async (t) => {
+        try {
+            await callback(t)
+        } catch (error) {
+            await t.rollback()
+        } finally {
+            await t.commit()
+        }
+    });
 }
 
 // Close the connection when the application shuts down
