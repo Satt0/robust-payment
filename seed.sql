@@ -9,15 +9,14 @@ SELECT
 FROM generate_series(1, 500);
 
 -- Seed products
-INSERT INTO products (name, description, base_price)
+INSERT INTO products (name, description)
 SELECT 
     'Product ' || generate_series,
     'Description for product ' || generate_series,
-    (random() * 900 + 10)::decimal(10,2)
 FROM generate_series(1, 1000);
 
 -- Seed product variants
-INSERT INTO product_variants (product_id, sku, variant_name, price_adjustment, stock_quantity)
+INSERT INTO product_variants (product_id, sku, variant_name, price, stock_quantity)
 SELECT 
     p.id,
     'SKU-' || p.id || '-' || v.variant_num,
